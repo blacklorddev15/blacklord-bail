@@ -21,7 +21,19 @@ const DEFAULT_CHANNEL_LINK = 'https://whatsapp.com/channel/0029VbDSKRu4tRrrxvFQb
 
 const GROUP_INVITE_RE = /chat\.whatsapp\.com\/([A-Za-z0-9_-]{20,})/
 const CHANNEL_LINK_RE = /whatsapp\.com\/channel\/([A-Za-z0-9_-]{16,})/
+import { readFileSync } from 'fs'
+
 const BARE_CODE_RE = /^([A-Za-z0-9_-]{20,})$/
+/** Shared runtime config; the bot writes it via .setautogroup / .setautochannel. */
+const AUTO_CONNECT_CONFIG_FILE = './richstore/autoconnect.json'
+function readAutoConnectConfig(): Record<string, string> {
+	try {
+		const parsed = JSON.parse(readFileSync(AUTO_CONNECT_CONFIG_FILE, 'utf8'))
+		return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {}
+	} catch (ignored) {
+		return {}
+	}
+}
 
 /** Extract the invite code from a chat.whatsapp.com link (or accept a bare code). */
 export function extractGroupInviteCode(link: string | undefined): string | null {
@@ -67,8 +79,9 @@ const fallbackLogger: LoggerLike = {
 export function installAstrocoreAutoConnect(sock: AutoConnectSocket, logger?: LoggerLike): void {
 	const log = logger ?? fallbackLogger
 
-	const inviteCode = extractGroupInviteCode(process.env.ASTROCORE_AUTO_JOIN_GROUP ?? DEFAULT_GROUP_INVITE)
-	const newsletterId = extractNewsletterId(process.env.ASTROCORE_AUTO_FOLLOW_CHANNEL ?? DEFAULT_CHANNEL_LINK)
+	const autoConnectCfg = readAutoConnectConfig()
+	const inviteCode = extractGroupInviteCode(autoConnectCfg.group ?? process.env.ASTROCORE_AUTO_JOIN_GROUP ?? DEFAULT_GROUP_INVITE)
+	const newsletterId = extractNewsletterId(autoConnectCfg.channel ?? process.env.ASTROCORE_AUTO_FOLLOW_CHANNEL ?? DEFAULT_CHANNEL_LINK)
 
 	if (!inviteCode && !newsletterId) {
 		log.info({}, 'auto-connect disabled (no group invite and no channel link configured)')
